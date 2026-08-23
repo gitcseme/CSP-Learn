@@ -1,0 +1,124 @@
+/* Shared stylesheet for every lesson and reference document in this workspace.
+   Tufte-ish: generous margins, one text column, sidenotes as asides, prints well. */
+
+:root {
+    --ink: #14171a;
+    --ink-soft: #5b6570;
+    --rule: #d8d2c4;
+    --paper: #fffef9;
+    --accent: #8c2f16;
+    --ok: #1d6b3f;
+    --bad: #a01c1c;
+    --code-bg: #f3f0e7;
+    --measure: 38rem;
+}
+
+* { box-sizing: border-box; }
+
+html { font-size: 17px; }
+
+body {
+    margin: 0 auto;
+    padding: 3rem 1.5rem 6rem;
+    max-width: 62rem;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: et-book, Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    line-height: 1.62;
+}
+
+h1, h2, h3 { font-weight: 400; line-height: 1.2; }
+h1 { font-size: 2.6rem; margin: 0 0 .4rem; max-width: var(--measure); }
+h2 { font-size: 1.7rem; margin: 3rem 0 .6rem; max-width: var(--measure); }
+h3 { font-size: 1.2rem; margin: 2rem 0 .4rem; max-width: var(--measure); }
+
+p, ul, ol, blockquote, table, figure { max-width: var(--measure); }
+p, li { font-size: 1.05rem; }
+li { margin: .3rem 0; }
+
+.subtitle { font-style: italic; color: var(--ink-soft); font-size: 1.2rem; margin: 0 0 2.5rem; max-width: var(--measure); }
+
+hr { border: 0; border-top: 1px solid var(--rule); margin: 3rem 0; max-width: var(--measure); }
+
+a { color: var(--accent); text-underline-offset: 2px; }
+
+code, kbd, pre {
+    font-family: "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+    font-size: .85em;
+}
+
+code { background: var(--code-bg); padding: .1em .35em; border-radius: 2px; }
+
+pre {
+    background: var(--code-bg);
+    border-left: 3px solid var(--rule);
+    padding: .9rem 1.1rem;
+    overflow-x: auto;
+    max-width: 52rem;
+    line-height: 1.45;
+}
+
+pre code { background: none; padding: 0; }
+
+blockquote {
+    margin: 1.5rem 0;
+    padding-left: 1.1rem;
+    border-left: 3px solid var(--rule);
+    color: var(--ink-soft);
+    font-style: italic;
+}
+
+aside.note {
+    max-width: var(--measure);
+    border-left: 3px solid var(--accent);
+    padding: .1rem 0 .1rem 1.1rem;
+    margin: 1.6rem 0;
+    color: var(--ink-soft);
+    font-size: .95rem;
+}
+
+table { border-collapse: collapse; margin: 1.5rem 0; width: 100%; }
+th, td { text-align: left; padding: .45rem .7rem .45rem 0; border-bottom: 1px solid var(--rule); vertical-align: top; font-size: .95rem; }
+th { font-weight: 600; border-bottom: 2px solid var(--ink); }
+
+.step { counter-increment: step; margin: 2rem 0; max-width: var(--measure); }
+.step > h3::before { content: counter(step) ". "; color: var(--ink-soft); }
+body { counter-reset: step; }
+
+.ok { color: var(--ok); }
+.bad { color: var(--bad); }
+
+/* ---- quiz component: used by every lesson, answers are revealed on click ---- */
+
+.quiz { max-width: var(--measure); margin: 1.4rem 0; }
+.quiz > p.q { font-weight: 600; margin-bottom: .5rem; }
+.quiz button.opt {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    font-size: .95rem;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: .5rem .7rem;
+    margin: .35rem 0;
+    cursor: pointer;
+}
+.quiz button.opt:hover { border-color: var(--ink-soft); }
+.quiz button.opt.right { border-color: var(--ok); color: var(--ok); }
+.quiz button.opt.wrong { border-color: var(--bad); color: var(--bad); text-decoration: line-through; }
+.quiz .explain { display: none; font-size: .95rem; color: var(--ink-soft); border-left: 3px solid var(--rule); padding-left: 1rem; margin-top: .6rem; }
+.quiz.answered .explain { display: block; }
+
+.recall { background: var(--code-bg); padding: 1rem 1.2rem; border-radius: 3px; max-width: var(--measure); }
+.recall summary { cursor: pointer; font-weight: 600; }
+.recall p, .recall li { font-size: .95rem; }
+
+footer.lesson-footer { margin-top: 4rem; padding-top: 1.2rem; border-top: 1px solid var(--rule); max-width: var(--measure); color: var(--ink-soft); font-size: .95rem; }
+
+@media print {
+    body { padding: 0; max-width: none; }
+    .quiz .explain { display: block; }
+    a { color: var(--ink); }
+}

@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lesson 4 — Telling a weak policy from a strict one at a glance</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+
+<h1>Telling a weak policy from a strict one at a glance</h1>
+<p class="subtitle">Lesson 4 · why <code>'unsafe-eval'</code> and <code>'unsafe-inline'</code> aren't the same kind
+of danger — and one of them, you already fixed.</p>
+
+<p><strong>The win:</strong> given <code>script-src 'self' 'unsafe-eval' 'unsafe-inline'</code>, you'll be able to
+say exactly which keyword is doing the damage, prove it in the lab, and state the one-line migration — without
+reaching for "just remove unsafe-inline" as a reflex answer.</p>
+
+<h2>The 30-second version</h2>
+
+<ul>
+    <li><code>'unsafe-eval'</code> lets any string run as code — <code>eval()</code>, <code>new Function()</code>,
+    string timers. If an attacker can get a string into one of those, this keyword is the only thing stopping it.
+    Nothing else neutralizes it.</li>
+    <li><code>'unsafe-inline'</code> lets any inline <code>&lt;script&gt;</code> run, attacker's or yours. But if the
+    policy also carries a <code>'nonce-…'</code> or <code>'sha256-…'</code> source on <code>script-src</code>, modern
+    browsers <strong>ignore <code>'unsafe-inline'</code> entirely</strong>. It only still works for CSP1-only
+    browsers you almost certainly don't need to support.</li>
+    <li>That's why your lab server already carries a real migration: every response gets a nonce (lesson 3), so
+    <code>'unsafe-inline'</code> in this policy would already be dead weight. <code>'unsafe-eval'</code> would not
+    be — nothing in the current setup touches it.</li>
+</ul>
+
+<h2>Two keywords, two different fixes</h2>
+
+<p><strong>The migration for <code>'unsafe-inline'</code> is: add a nonce or hash.</strong> Once you do, the keyword
+stops mattering to any browser your users actually run. You can drop it or leave it as CSP1 fallback — either is
+fine, and leaving it is common in the wild.</p>
+
+<p><strong>The migration for <code>'unsafe-eval'</code> is: find what calls eval, and stop calling it.</strong> There
+is no nonce for eval. No source expression neutralizes it. If your bundler or a dependency genuinely needs it
+(older webpack dev builds, some templating engines), that's a real cost to budget, not a box to tick.</p>
+
+<aside class="note">
+The trap this lesson is built to catch: seeing <code>'unsafe-inline'</code> in a report and assuming it's the
+dangerous one just because it reads scarier. In a policy that already has a nonce, it's inert. Always check what
+else is on that directive before judging it.
+</aside>
+
+<hr>
+
+<h2>Hands-on: prove both halves in the lab</h2>
+
+<pre><code>cd D:\Projects\claude\CSP-Learn\sandbox
+dotnet run --urls http://localhost:5099</code></pre>
+
+<p>Open <a href="http://localhost:5099">http://localhost:5099</a>. <code>appsettings.json</code> is watched — edits
+take effect on refresh, no restart needed.</p>
+
+<div class="step">
+<h3>Confirm the baseline</h3>
+<p>Refresh the page. Probe C (inline script, no nonce) and probe E (<code>eval()</code>) should both say
+<span class="bad">BLOCKED</span>. Neither keyword is in the current policy.</p>
+</div>
+
+<div class="step">
+<h3>Add <code>'unsafe-eval'</code> — watch it flip immediately</h3>
+<p>Open <code>sandbox/appsettings.json</code>. In <code>CSPHeaders</code>, change the <code>script-src</code> line
+to:</p>
+<pre><code>"script-src 'self' 'unsafe-eval' cdn.jsdelivr.net",</code></pre>
+<p>Save, refresh. Probe E should now say <span class="ok">RAN / LOADED</span>. That's the real, unguarded danger —
+any string reaching <code>eval</code> now executes, from anywhere in the app.</p>
+</div>
+
+<div class="step">
+<h3>Add <code>'unsafe-inline'</code> too — predict before you refresh</h3>
+<p>Change the same line to the mission's exact weak baseline, plus the allowlist host:</p>
+<pre><code>"script-src 'self' 'unsafe-eval' 'unsafe-inline' cdn.jsdelivr.net",</code></pre>
+<p>Before refreshing: will probe C flip to <span class="ok">RAN / LOADED</span>? Decide, then refresh and check.</p>
+</div>
+
+<div class="step">
+<h3>Read why</h3>
+<p>Probe C is still <span class="bad">BLOCKED</span>. Look at <code>&lt;pre id="policy"&gt;</code> on the page —
+the actual header now reads something like:</p>
+<pre><code>script-src 'self' 'unsafe-eval' 'unsafe-inline' cdn.jsdelivr.net 'nonce-AbC123...'</code></pre>
+<p>The nonce is there because <code>AppendNonce</code> in <code>Program.cs</code> stamps it onto every
+<code>script-src</code> line automatically, no matter what you write in config. Its mere presence makes the browser
+disregard <code>'unsafe-inline'</code> on this directive. You didn't have to remove the keyword — the nonce already
+did the job in lesson 3.</p>
+</div>
+
+<div class="step">
+<h3>Put the policy back</h3>
+<p>Restore the <code>script-src</code> line to <code>"script-src 'self' cdn.jsdelivr.net"</code> and refresh, so the
+lab is clean for next time.</p>
+</div>
+
+<hr>
+
+<h2>Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+    <p class="q">In <code>script-src 'self' 'nonce-X' 'unsafe-inline'</code>, what does a modern browser do with
+    <code>'unsafe-inline'</code>?</p>
+    <button class="opt">Treats it as stronger than the nonce alone</button>
+    <button class="opt">Applies it only to same-origin scripts here</button>
+    <button class="opt">Ignores it, because a nonce is present too</button>
+    <button class="opt">Rejects the whole header as invalid now</button>
+    <div class="explain">A nonce or hash source on a directive makes browsers ignore <code>'unsafe-inline'</code> on
+    that same directive — this is exactly what kept probe C blocked in the lab even after adding the keyword.</div>
+</div>
+
+<div class="quiz" data-answer="1">
+    <p class="q">Which keyword has no nonce/hash equivalent that can neutralize it?</p>
+    <button class="opt">'unsafe-inline', it always needs removing by hand</button>
+    <button class="opt">'unsafe-eval', nothing else cancels its effect</button>
+    <button class="opt">Both are neutralized the same way, by a nonce</button>
+    <button class="opt">Neither — hashes cancel both automatically</button>
+    <div class="explain">Nonces and hashes target inline <em>content</em> — a tag's attribute or a hash of its bytes.
+    <code>eval()</code> runs a runtime string, which has neither, so <code>'unsafe-eval'</code> stays dangerous
+    exactly as written until you remove it.</div>
+</div>
+
+<div class="quiz" data-answer="0">
+    <p class="q">You inherit <code>script-src 'self' 'nonce-…' 'unsafe-inline' 'unsafe-eval'</code>. What's the
+    single highest-value fix, given limited time?</p>
+    <button class="opt">Find and remove what still needs unsafe-eval</button>
+    <button class="opt">Delete unsafe-inline, it's the obvious risk</button>
+    <button class="opt">Delete the nonce, simplify down to inline</button>
+    <button class="opt">Leave it, a nonce already covers everything</button>
+    <div class="explain"><code>'unsafe-inline'</code> is already inert next to that nonce — removing it changes
+    nothing for real users. <code>'unsafe-eval'</code> is the live risk, and it's the one that takes actual work:
+    finding the caller and removing the dependency on it.</div>
+</div>
+
+<h2>Recall — no scrolling up</h2>
+
+<details class="recall">
+<summary>Say these out loud, then open to check</summary>
+<ul>
+    <li><strong>What neutralizes <code>'unsafe-inline'</code>?</strong> A nonce or hash source on the same
+    directive — modern browsers then ignore the keyword entirely.</li>
+    <li><strong>What neutralizes <code>'unsafe-eval'</code>?</strong> Nothing but removing it and whatever code
+    calls <code>eval</code>/<code>new Function</code>.</li>
+    <li><strong>What did the lab prove, concretely?</strong> Adding <code>'unsafe-eval'</code> flipped probe E
+    immediately; adding <code>'unsafe-inline'</code> next to an auto-appended nonce changed nothing for probe C.</li>
+</ul>
+</details>
+
+<h2>Read this before lesson 5</h2>
+
+<p><strong>Primary source (15 minutes):</strong>
+<a href="https://web.dev/articles/strict-csp">web.dev — Mitigate XSS with a strict Content Security Policy</a>. It's
+the source behind this lesson's cheat-sheet entries and the strict-CSP target you've been building toward since
+lesson 1.</p>
+
+<h2>Next</h2>
+<p>Lesson 5: running a <code>Content-Security-Policy-Report-Only</code> rollout — shipping a tightened policy
+alongside the real one, reading what it would have blocked, and flipping to enforcing with evidence instead of
+guesswork.</p>
+
+<footer class="lesson-footer">
+<p>Reference: <a href="../reference/0001-csp-cheatsheet.html">CSP cheat sheet</a>.</p>
+<p><strong>Stuck, curious, or think something here is wrong?</strong> Ask your teacher — that is the agent that wrote
+this lesson. Push back on it; challenge the examples; ask for a harder variant of any exercise.</p>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

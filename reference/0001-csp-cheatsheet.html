@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reference — CSP cheat sheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+
+<h1>CSP cheat sheet</h1>
+<p class="subtitle">Directives, sources, fallback rules, and how to read a violation report. Built for lookup, not reading.</p>
+
+<h2>Anatomy</h2>
+
+<pre><code>Content-Security-Policy: &lt;directive&gt; &lt;source&gt; &lt;source&gt;; &lt;directive&gt; &lt;source&gt;; …</code></pre>
+
+<ul>
+    <li>Directives separated by <code>;</code>, sources by spaces. Order is irrelevant.</li>
+    <li><code>Content-Security-Policy</code> enforces. <code>Content-Security-Policy-Report-Only</code> only reports. Both can be sent at once.</li>
+    <li>Two enforcing policies on one response = <em>both</em> must allow a load (intersection), not union.</li>
+</ul>
+
+<h2>Directives you will meet</h2>
+
+<h3>Fetch directives — fall back to <code>default-src</code> when absent</h3>
+<table>
+    <tr><th>Directive</th><th>Governs</th></tr>
+    <tr><td><code>script-src</code></td><td>All JavaScript: <code>&lt;script src&gt;</code>, inline blocks, <code>eval</code>, workers</td></tr>
+    <tr><td><code>script-src-elem</code></td><td>Only <code>&lt;script&gt;</code> elements — overrides <code>script-src</code> for them</td></tr>
+    <tr><td><code>script-src-attr</code></td><td>Only inline handlers (<code>onclick=</code>). Needs <code>'unsafe-hashes'</code> to allow specific ones</td></tr>
+    <tr><td><code>style-src</code> / <code>-elem</code> / <code>-attr</code></td><td>Stylesheets, <code>&lt;style&gt;</code> blocks, <code>style=</code> attributes</td></tr>
+    <tr><td><code>img-src</code>, <code>font-src</code>, <code>media-src</code></td><td>Images, fonts, audio/video</td></tr>
+    <tr><td><code>connect-src</code></td><td><code>fetch</code>, XHR, WebSocket, EventSource, <code>sendBeacon</code></td></tr>
+    <tr><td><code>frame-src</code></td><td>What this page may embed in an iframe</td></tr>
+    <tr><td><code>worker-src</code></td><td>Web/service/shared workers</td></tr>
+    <tr><td><code>object-src</code></td><td>Plugins. Should be <code>'none'</code> everywhere</td></tr>
+    <tr><td><code>default-src</code></td><td>Fallback for any fetch directive <em>not present</em> in the policy</td></tr>
+</table>
+
+<h3>Document &amp; navigation directives — <em>no</em> fallback to <code>default-src</code></h3>
+<table>
+    <tr><th>Directive</th><th>Governs</th><th>If omitted</th></tr>
+    <tr><td><code>frame-ancestors</code></td><td>Who may embed <em>this</em> page (clickjacking)</td><td>Anyone may embed</td></tr>
+    <tr><td><code>base-uri</code></td><td><code>&lt;base href&gt;</code> injection</td><td>Unrestricted — set <code>'none'</code></td></tr>
+    <tr><td><code>form-action</code></td><td>Where forms may POST</td><td>Anywhere</td></tr>
+    <tr><td><code>upgrade-insecure-requests</code></td><td>Rewrites <code>http:</code> subresource loads to <code>https:</code></td><td>—</td></tr>
+    <tr><td><code>report-uri</code> / <code>report-to</code></td><td>Where violation reports are POSTed</td><td>No reports</td></tr>
+</table>
+
+<aside class="note">
+Forgetting that <code>frame-ancestors</code> and <code>base-uri</code> do <strong>not</strong> inherit from
+<code>default-src</code> is the single most common CSP mistake. A policy of <code>default-src 'self'</code> alone
+leaves your page embeddable by anyone.
+</aside>
+
+<h2>Source expressions</h2>
+
+<table>
+    <tr><th>Source</th><th>Matches</th><th>Watch out</th></tr>
+    <tr><td><code>'self'</code></td><td>Same scheme + host + port</td><td>Not subdomains. Not another port.</td></tr>
+    <tr><td><code>'none'</code></td><td>Nothing</td><td>Must be the only source in that directive</td></tr>
+    <tr><td><code>example.com</code></td><td>That host, any path, http or https</td><td>Bare host also matches its <em>own</em> subpaths only, not subdomains</td></tr>
+    <tr><td><code>*.example.com</code></td><td>Any subdomain</td><td>Does <em>not</em> match <code>example.com</code> itself</td></tr>
+    <tr><td><code>https:</code></td><td>Any HTTPS origin</td><td>In <code>script-src</code> this is barely a policy at all</td></tr>
+    <tr><td><code>data:</code></td><td><code>data:</code> URIs</td><td>In <code>script-src</code>/<code>object-src</code> it is an XSS bypass</td></tr>
+    <tr><td><code>blob:</code></td><td><code>URL.createObjectURL</code> results</td><td>Needed by video players and workers</td></tr>
+    <tr><td><code>'unsafe-inline'</code></td><td>Inline blocks and attributes</td><td>Ignored when a nonce or hash is also present (in CSP2+ browsers)</td></tr>
+    <tr><td><code>'unsafe-eval'</code></td><td><code>eval</code>, <code>new Function</code>, string timers</td><td>webpack dev builds and some template engines need it</td></tr>
+    <tr><td><code>'nonce-{base64}'</code></td><td>Tags with a matching <code>nonce</code> attribute</td><td>Must be fresh + unpredictable per response</td></tr>
+    <tr><td><code>'sha256-{base64}'</code></td><td>Inline content hashing to that digest</td><td>Hash covers the exact bytes — whitespace included</td></tr>
+    <tr><td><code>'strict-dynamic'</code></td><td>Scripts loaded <em>by</em> an already-trusted script</td><td>Makes host allowlists in that directive be ignored — by design</td></tr>
+</table>
+
+<h2>The strict-CSP target</h2>
+
+<p>Recommended by <a href="https://web.dev/articles/strict-csp">web.dev</a>, because host allowlists are bypassable in
+most real configurations:</p>
+
+<pre><code>Content-Security-Policy:
+  script-src 'nonce-{RANDOM}' 'strict-dynamic';
+  object-src 'none';
+  base-uri 'none';</code></pre>
+
+<h2>Worked example: a typical multi-tenant SPA policy</h2>
+
+<p>Invented, but shaped like a real one you'll actually meet — a React SPA served by ASP.NET Core, pulling in a
+video embed, an analytics beacon, and a webfont host:</p>
+
+<pre><code>default-src 'self' *.example-app.com *.googleapis.com *.gstatic.com
+            *.youtube.com cdn.example-assets.com blob: data: vjs.zencdn.net …
+script-src 'self' *.example-app.com vjs.zencdn.net        ← plus the nonce, injected
+style-src  'self' fonts.googleapis.com vjs.zencdn.net 'unsafe-inline'
+frame-ancestors *.example-app.com *.example-app.co.uk
+form-action 'self'
+upgrade-insecure-requests
+report-uri /api/csp-report</code></pre>
+
+<p>Notes to carry into later lessons:</p>
+<ul>
+    <li>No <code>img-src</code>, <code>connect-src</code>, or <code>frame-src</code> → all three fall back to that very wide <code>default-src</code>.</li>
+    <li><code>style-src</code> keeps <code>'unsafe-inline'</code>: CSS-in-JS libraries (MUI/emotion, styled-components) inject styles at runtime, so a style nonce is not straightforward.</li>
+    <li>No <code>object-src</code> and no <code>base-uri</code> → both unrestricted. Cheap hardening win.</li>
+    <li>A host allowlist in <code>script-src</code> is precisely the shape web.dev calls bypassable.</li>
+</ul>
+
+<p>A weaker sibling app, for comparison:</p>
+<pre><code>script-src 'self' 'unsafe-eval' 'unsafe-inline'</code></pre>
+<p><code>'unsafe-inline'</code> in <code>script-src</code> means any injected <code>&lt;script&gt;</code>
+executes — much weaker than the policy above.</p>
+
+<h2>Reading a violation report</h2>
+
+<p>Every violation shows up in two shapes: a human-readable line in the DevTools console, and — if
+<code>report-uri</code>/<code>report-to</code> is set — a JSON <code>csp-report</code> object POSTed to your
+endpoint. Same event, two representations
+(<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/report-uri">MDN</a>).</p>
+
+<table>
+    <tr><th>Field</th><th>Meaning</th></tr>
+    <tr><td><code>blocked-uri</code></td><td>What was blocked. Truncated to scheme+host+port cross-origin (privacy).</td></tr>
+    <tr><td><code>disposition</code></td><td><code>"enforce"</code> (from <code>Content-Security-Policy</code>) or <code>"report"</code> (from <code>-Report-Only</code>).</td></tr>
+    <tr><td><code>effective-directive</code></td><td>The directive that actually decided the block. Modern name.</td></tr>
+    <tr><td><code>violated-directive</code></td><td>Historic name for the same value as <code>effective-directive</code>.</td></tr>
+    <tr><td><code>original-policy</code></td><td>The full header value in effect.</td></tr>
+    <tr><td><code>script-sample</code></td><td>First 40 chars of the inline content — only present when that directive carries <code>'report-sample'</code>.</td></tr>
+</table>
+
+<aside class="note">
+The trap: <code>effective-directive</code> can be <em>more specific</em> than anything you wrote. A policy with only
+<code>style-src</code> can report <code>effective-directive: "style-src-elem"</code> for a blocked
+<code>&lt;style&gt;</code> tag — Chrome and Firefox report the resource-type-specific name even though you never
+wrote that keyword.
+</aside>
+
+<h2>Debugging loop</h2>
+<ol>
+    <li>Reproduce with DevTools Console open — the error names the directive that blocked, and the blocked URL.</li>
+    <li>Ask which resource <em>type</em> it was, then find that type's directive; if absent, the culprit is <code>default-src</code>.</li>
+    <li>Add the narrowest source that fixes it. Never reach for <code>'unsafe-inline'</code>/<code>'unsafe-eval'</code> as a first move.</li>
+    <li>Before shipping a tightening, ship it as <code>Content-Security-Policy-Report-Only</code> and read the reports.</li>
+    <li>Grade the result at <a href="https://csp-evaluator.withgoogle.com/">csp-evaluator.withgoogle.com</a>.</li>
+</ol>
+
+<footer class="lesson-footer">
+<p>Lessons: <a href="../lessons/0001-what-the-browser-does-with-your-csp.html">1 — What the browser does with your CSP</a> ·
+<a href="../lessons/0002-reading-a-csp-violation-report.html">2 — Reading a CSP violation report</a></p>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,34 @@
+body {
+    margin: 2rem auto;
+    padding: 0 1.5rem;
+    max-width: 54rem;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    line-height: 1.55;
+    color: #14171a;
+    background: #fffef9;
+}
+
+h1 { font-weight: 500; }
+
+.policy-label { margin-bottom: .3rem; color: #5b6570; }
+
+pre {
+    background: #f3f0e7;
+    border-left: 3px solid #d8d2c4;
+    padding: .8rem 1rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: .85rem;
+}
+
+table { border-collapse: collapse; width: 100%; margin: 1.5rem 0; }
+th, td { text-align: left; padding: .45rem .6rem .45rem 0; border-bottom: 1px solid #d8d2c4; font-size: .95rem; }
+th { border-bottom: 2px solid #14171a; }
+
+code { background: #f3f0e7; padding: .1em .3em; font-size: .85em; }
+
+.ok { color: #1d6b3f; font-weight: 600; }
+.bad { color: #a01c1c; font-weight: 600; }
+
+.marker { outline: 2px solid #a01c1c; outline-offset: 4px; width: fit-content; padding: .2rem .4rem; }

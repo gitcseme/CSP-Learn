@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lesson 1 — What the browser does with your CSP</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+
+<h1>What the browser does with your CSP</h1>
+<p class="subtitle">Lesson 1 · you will read a policy, predict every block it causes, then watch a browser prove you right or wrong.</p>
+
+<p><strong>The win:</strong> by the end of this lesson you can look at a <code>Content-Security-Policy</code> header
+and say — for each resource on the page — <em>allowed</em> or <em>blocked</em>, and name the directive that decided it.
+That single skill is what turns a CSP violation from a mystery into a two-minute fix.</p>
+
+<h2>The model, in four sentences</h2>
+
+<p>A CSP is a list of <strong>directives</strong>, separated by <code>;</code>. Each directive names a
+<em>kind</em> of resource and then lists the <strong>sources</strong> that are allowed for it
+(<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP">MDN</a>).
+The browser applies it to <em>every</em> load the document attempts: scripts, styles, images, fonts, XHR/fetch, iframes, form posts.
+Nothing is allowed by omission — if a resource type has a directive that does not list a matching source, the load is blocked and an error appears in the console.</p>
+
+<pre><code>Content-Security-Policy: default-src 'self'; script-src 'self'; report-uri /csp-report
+                         └────┬────┘ └─┬─┘  └────┬───┘        └──────┬──────┘
+                          directive  source   directive           directive</code></pre>
+
+<h3>The one rule people get wrong: <code>default-src</code> is a <em>fallback</em>, not a default</h3>
+
+<p><code>default-src</code> only applies to resource types that have <strong>no directive of their own</strong> in this policy.
+The moment you write <code>img-src</code>, that directive takes over for images completely — <code>default-src</code> stops
+contributing anything to images, and your carefully listed sources in <code>default-src</code> no longer apply to them.</p>
+
+<aside class="note">
+This is why a policy like the one in the cheat sheet's worked example behaves the way it does. Its
+<code>default-src</code> lists a long allowlist (<code>*.youtube.com</code>, <code>cdn.example-assets.com</code>,
+<code>blob:</code>, <code>data:</code>, …) and there is <em>no</em> <code>img-src</code> — so images fall back to
+that whole list. But there <em>is</em> a <code>script-src</code>, so scripts get only
+<code>'self' *.example-app.com vjs.zencdn.net</code>, and nothing from the <code>default-src</code> list.
+</aside>
+
+<h3>Sources you will actually meet</h3>
+
+<table>
+    <tr><th>Source</th><th>Means</th></tr>
+    <tr><td><code>'self'</code></td><td>Same scheme + host + port as the document. Not "my whole company".</td></tr>
+    <tr><td><code>'none'</code></td><td>Nothing at all. Only meaningful alone.</td></tr>
+    <tr><td><code>example.com</code>, <code>*.example-app.com</code></td><td>Host allowlist. A wildcard covers subdomains, not the bare domain.</td></tr>
+    <tr><td><code>data:</code>, <code>blob:</code>, <code>wss:</code></td><td>Whole schemes. Broad — <code>data:</code> in <code>script-src</code> is a hole.</td></tr>
+    <tr><td><code>'unsafe-inline'</code></td><td>Allow inline <code>&lt;script&gt;</code>/<code>&lt;style&gt;</code> content. Turns off most of CSP's XSS value for that type.</td></tr>
+    <tr><td><code>'unsafe-eval'</code></td><td>Allow <code>eval()</code>, <code>new Function()</code>, string <code>setTimeout</code>.</td></tr>
+    <tr><td><code>'nonce-{random}'</code></td><td>Allow the inline scripts carrying this exact <code>nonce</code> attribute. Fresh value per response.</td></tr>
+    <tr><td><code>'sha256-{hash}'</code></td><td>Allow inline content whose hash matches. Good for build-time-fixed inline scripts.</td></tr>
+</table>
+
+<p>Full list, one page per directive:
+<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy">MDN's directive reference</a>.</p>
+
+<hr>
+
+<h2>Hands-on: the lab</h2>
+
+<p>The workspace has a throwaway ASP.NET Core app in <code>./sandbox/</code>. It builds its header the way a typical
+nonce-based CSP middleware does — random nonce per request, directives from <code>appsettings.json</code>, nonce
+appended to <code>script-src</code> — and serves one page with eight probes, each of which reports whether it ran or
+was blocked.</p>
+
+<pre><code>cd D:\Projects\claude\CSP-Learn\sandbox
+dotnet run --urls http://localhost:5099</code></pre>
+
+<p>Open <a href="http://localhost:5099">http://localhost:5099</a> with DevTools' Console <em>open</em>.</p>
+
+<div class="step">
+<h3>Predict before you look</h3>
+<p>The starting policy is:</p>
+<pre><code>default-src 'self'; script-src 'self'; report-uri /csp-report</code></pre>
+<p>Write down <span class="ok">RAN</span> or <span class="bad">BLOCKED</span> for each probe <em>before</em> scrolling
+the page. Guessing first is the point — the correction is what sticks.</p>
+<table>
+    <tr><th>Probe</th><th>Your call</th></tr>
+    <tr><td>A — external script, same origin</td><td>&nbsp;</td></tr>
+    <tr><td>B — external script, cdn.jsdelivr.net</td><td>&nbsp;</td></tr>
+    <tr><td>C — inline <code>&lt;script&gt;</code>, no nonce</td><td>&nbsp;</td></tr>
+    <tr><td>D — inline <code>&lt;script&gt;</code> with nonce</td><td>&nbsp;</td></tr>
+    <tr><td>E — <code>eval()</code></td><td>&nbsp;</td></tr>
+    <tr><td>F — image from placehold.co</td><td>&nbsp;</td></tr>
+    <tr><td>G — <code>fetch()</code> to api.github.com</td><td>&nbsp;</td></tr>
+    <tr><td>H — inline <code>&lt;style&gt;</code> block</td><td>&nbsp;</td></tr>
+</table>
+<p>Two of the eight run. Six are blocked. Which two?</p>
+</div>
+
+<div class="step">
+<h3>Read the console, not just the table</h3>
+<p>Every blocked load logs a line naming the directive that refused it. Find the line for probe F and notice it blames
+<code>default-src</code>, not <code>img-src</code> — the fallback rule, visible in the wild.</p>
+</div>
+
+<div class="step">
+<h3>Now make probe B pass — twice, two different ways</h3>
+<p>Edit <code>sandbox/appsettings.json</code>. The config is watched, so just save and refresh; no restart.</p>
+<ol>
+    <li>The <em>bad</em> way: add <code>'unsafe-inline'</code> to <code>script-src</code>. Does B pass? (No.) Which probe does it unblock instead, and what did you just give an attacker?</li>
+    <li>The <em>correct</em> way: add <code>cdn.jsdelivr.net</code> to <code>script-src</code>.</li>
+</ol>
+<p>The reflex this builds: <strong>a blocked resource is a source-list problem, not an <code>'unsafe-inline'</code> problem.</strong></p>
+</div>
+
+<div class="step">
+<h3>Break the nonce</h3>
+<p>Probe D passes because the server put the same random value in both the header and the tag. Prove that is what is
+happening: view source, find <code>nonce="…"</code>, compare with the <code>Content-Security-Policy</code> response
+header in the Network tab. They match. Refresh — both changed, together.</p>
+<p>Now delete <code>script-src</code> from the policy entirely, leaving only <code>default-src 'self'</code>. Probe D
+now fails and the whole results table stops rendering. Why? Look at <code>AppendNonce</code> in
+<code>sandbox/Program.cs</code>: the nonce is only ever appended to a directive that <em>starts with</em>
+<code>script-src</code>. No <code>script-src</code> line, no nonce anywhere, and inline scripts fall back to
+<code>default-src 'self'</code>, which does not permit inline content.</p>
+<p>This is not a quirk of the lab — any middleware that appends a nonce only to <code>script-src</code> (a common,
+reasonable choice) behaves exactly this way the moment that line is removed from the policy.</p>
+</div>
+
+<hr>
+
+<h2>Check yourself</h2>
+
+<div class="quiz" data-answer="1">
+    <p class="q">Policy: <code>default-src 'self' cdn.example.com; script-src 'self'</code>. A page loads an image from
+    <code>cdn.example.com</code>. What happens?</p>
+    <button class="opt">Blocked, because script-src omits that host</button>
+    <button class="opt">Allowed, because default-src covers images</button>
+    <button class="opt">Blocked, because self excludes any other host</button>
+    <button class="opt">Allowed, because images ignore any policy</button>
+    <div class="explain">There is no <code>img-src</code>, so images fall back to <code>default-src</code>, which lists
+    <code>cdn.example.com</code>. <code>script-src</code> governs scripts only — a directive never constrains a resource
+    type it does not own.</div>
+</div>
+
+<div class="quiz" data-answer="2">
+    <p class="q">Policy: <code>script-src 'self' 'nonce-abc123'</code>. Which script runs?</p>
+    <button class="opt">Inline script with attribute nonce="xyz789"</button>
+    <button class="opt">Inline event handler onclick="doThing()" here</button>
+    <button class="opt">Inline script with attribute nonce="abc123"</button>
+    <button class="opt">External script from https://cdn.example.com</button>
+    <div class="explain">Nonces must match exactly, and they only apply to elements carrying a <code>nonce</code>
+    attribute — inline <code>onclick=</code> handlers cannot carry one (they are governed by
+    <code>script-src-attr</code> and need <code>'unsafe-hashes'</code>). The CDN host is not listed.</div>
+</div>
+
+<div class="quiz" data-answer="0">
+    <p class="q">Why is a nonce regenerated on every single response rather than cached per user session?</p>
+    <button class="opt">A guessable value lets injected markup self-authorise</button>
+    <button class="opt">Browsers reject a nonce reused across two loads</button>
+    <button class="opt">The header has a strict maximum length per value</button>
+    <button class="opt">Caching proxies rewrite any repeated header value</button>
+    <div class="explain">The nonce is a secret shared between your server and that one response. If an attacker can
+    predict or read it (from an earlier page, a log, a cached response), their injected
+    <code>&lt;script nonce="…"&gt;</code> is allowed to run and the policy has bought you nothing. Hence
+    <code>RandomNumberGenerator</code>, 16 bytes, per request — see <code>sandbox/Program.cs</code> in this
+    workspace's lab.</div>
+</div>
+
+<h2>Recall — no scrolling up</h2>
+
+<details class="recall">
+<summary>Say these out loud, then open to check</summary>
+<ul>
+    <li><strong>When does <code>default-src</code> apply to images?</strong> Only when the policy has no <code>img-src</code>. If <code>img-src</code> exists, <code>default-src</code> contributes nothing to images.</li>
+    <li><strong>What does <code>'self'</code> match?</strong> The document's own scheme, host and port. Not subdomains, not other ports.</li>
+    <li><strong>What must be true for an inline script to run under a nonce policy?</strong> The <code>nonce</code> attribute on the tag equals the <code>'nonce-…'</code> source in the header of that same response.</li>
+    <li><strong>Which two directives were added to the lab policy to unblock a CDN script — and which was wrong?</strong> <code>script-src cdn.jsdelivr.net</code> is right; <code>'unsafe-inline'</code> unblocks a different probe and weakens the whole policy.</li>
+</ul>
+</details>
+
+<h2>Read this before lesson 2</h2>
+
+<p><strong>Primary source (20 minutes):</strong>
+<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP">MDN — Content Security Policy guide</a>.
+Read to the end of the nonces section. Skip Trusted Types.</p>
+
+<p>Then, if you want the destination in view:
+<a href="https://web.dev/articles/strict-csp">web.dev — Mitigate XSS with a strict CSP</a>, which argues that host
+allowlists like the one in this lesson's <code>script-src</code> are bypassable and that nonces plus
+<code>'strict-dynamic'</code> are the real answer. Lesson 3 lands there.</p>
+
+<h2>Next</h2>
+<p>Lesson 2: reading a <em>violation</em>. You will take the JSON report shape POSTed to <code>report-uri</code>,
+and go from a browser console error to the one-line diff that fixes it — including the trap where the report names a
+more specific directive than the one you actually wrote.</p>
+
+<footer class="lesson-footer">
+<p>Reference: <a href="../reference/0001-csp-cheatsheet.html">CSP cheat sheet</a> — directives, sources, fallback rules,
+worked-example policies. Print it.</p>
+<p><strong>Stuck, curious, or think something here is wrong?</strong> Ask your teacher — that is the agent that wrote
+this lesson. Push back on it; challenge the examples; ask for a harder variant of any exercise.</p>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CSP Lab</title>
+<link rel="stylesheet" href="/lab.css">
+<style>
+    /* Probe H: an inline <style> block. Needs style-src 'unsafe-inline'.
+       If it is blocked, #probe-h stays at its stylesheet colour. */
+    #probe-h { outline-color: rgb(0, 128, 0); }
+</style>
+</head>
+<body>
+
+<h1>CSP Lab</h1>
+<p class="policy-label">Policy on this response:</p>
+<pre id="policy">__POLICY__</pre>
+
+<table id="results">
+    <thead>
+        <tr><th>Probe</th><th>Needs</th><th>Result</th></tr>
+    </thead>
+    <tbody>
+        <tr><td>The results renderer is itself an inline script with a nonce.
+            If this row never disappears, the nonce'd script was blocked too — look at the console.</td></tr>
+    </tbody>
+</table>
+
+<p id="probe-h" class="marker">Probe H marker element</p>
+<p id="probe-i" class="marker">Probe I marker element</p>
+<img id="probe-f" alt="probe F" src="https://placehold.co/80x40/png" width="80" height="40">
+
+<!-- Probe A: same-origin external script -->
+<script src="/probe-self.js"></script>
+
+<!-- Probe B: cross-origin external script (sets window.dayjs) -->
+<script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
+
+<!-- Probe C: inline script, NO nonce -->
+<script>window.probeInline = true;</script>
+
+<!-- Probe D: inline script WITH the server-generated nonce -->
+<script nonce="__NONCE__">window.probeNonce = true;</script>
+
+<!-- The runner. Also carries the nonce. -->
+<script nonce="__NONCE__" defer>
+(async function () {
+    window.currentNonce = "__NONCE__"; // exposes this response's nonce to client JS, e.g. for probe I
+    const probes = [];
+
+    probes.push(['A — external script, same origin (/probe-self.js)', 'script-src \'self\'', window.probeSelfScript === true]);
+    probes.push(['B — external script, cross origin (cdn.jsdelivr.net)', 'script-src cdn.jsdelivr.net', typeof window.dayjs === 'function']);
+    probes.push(['C — inline script, no nonce', "script-src 'unsafe-inline'", window.probeInline === true]);
+    probes.push(['D — inline script with nonce', 'script-src \'nonce-…\'', window.probeNonce === true]);
+
+    let evalOk = false;
+    try { evalOk = eval('1 + 1') === 2; } catch (e) { evalOk = false; }
+    probes.push(['E — eval()', "script-src 'unsafe-eval'", evalOk]);
+
+    const img = document.getElementById('probe-f');
+    await new Promise(r => (img.complete ? r() : (img.onload = img.onerror = r)));
+    probes.push(['F — image, cross origin (placehold.co)', 'img-src placehold.co', img.naturalWidth > 0]);
+
+    let fetchOk = false;
+    try {
+        const res = await fetch('https://api.github.com/zen');
+        fetchOk = res.ok;
+    } catch (e) { fetchOk = false; }
+    probes.push(['G — fetch(), cross origin (api.github.com)', 'connect-src api.github.com', fetchOk]);
+
+    const outlineBlocked = getComputedStyle(document.getElementById('probe-h')).outlineColor;
+    probes.push(['H — inline style block', "style-src 'unsafe-inline'", outlineBlocked === 'rgb(0, 128, 0)']);
+
+    // Probe I: a <style> element inserted by script, the way a CSS-in-JS
+    // library (emotion, styled-components, MUI) injects styles at runtime.
+    // Uncomment the .nonce line below once style-src can accept a nonce.
+    const injected = document.createElement('style');
+    injected.nonce = window.currentNonce;
+    injected.textContent = '#probe-i { outline-color: rgb(0, 128, 0); }';
+    document.head.appendChild(injected);
+    const injectedBlocked = getComputedStyle(document.getElementById('probe-i')).outlineColor;
+    probes.push(['I — runtime-injected style (like a CSS-in-JS library)', "style-src 'nonce-…' (needs wiring)", injectedBlocked === 'rgb(0, 128, 0)']);
+
+    let tableRows = probes.map(([name, needs, ok]) => {
+        return `<tr><td>${name}</td><td><code>${needs}</code></td>` +
+               `<td class="${ok ? 'ok' : 'bad'}">${ok ? 'RAN / LOADED' : 'BLOCKED'}</td></tr>`
+    }).join('');
+
+    document.querySelector('#results tbody').innerHTML = tableRows;
+})();
+</script>
+
+</body>
+</html>
