@@ -132,6 +132,27 @@ The trap: <code>effective-directive</code> can be <em>more specific</em> than an
 wrote that keyword.
 </aside>
 
+<h2>Report-Only rollout</h2>
+
+<p><code>Content-Security-Policy-Report-Only</code> never blocks — it only reports
+(<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy-Report-Only">MDN</a>).
+Send it alongside the enforcing header; the browser evaluates each independently.</p>
+
+<table>
+    <tr><th>Rule</th><th>Consequence</th></tr>
+    <tr><td>Both headers may be sent on one response</td><td>Enforcing decides what loads; report-only decides what gets reported.</td></tr>
+    <tr><td>Needs <code>report-uri</code> or <code>report-to</code></td><td>Without one, "the operation won't have any effect" — a silent no-op.</td></tr>
+    <tr><td>Not supported in <code>&lt;meta&gt;</code></td><td>A rollout must happen in middleware / response headers.</td></tr>
+    <tr><td><code>blocked-uri</code> is filled in either way</td><td>Only <code>disposition</code> says whether anything was actually blocked.</td></tr>
+</table>
+
+<ol>
+    <li>Keep the live policy enforcing. Put the tightened candidate in <code>-Report-Only</code>, with a report endpoint.</li>
+    <li>Collect real traffic. Filter noise — browser extensions and malware generate reports you did not cause.</li>
+    <li>Per violation, decide: widen the candidate (real dependency) or fix the app (self-host, add a nonce).</li>
+    <li>Flip when the reports go quiet: candidate becomes <code>Content-Security-Policy</code>, report-only goes empty.</li>
+</ol>
+
 <h2>Debugging loop</h2>
 <ol>
     <li>Reproduce with DevTools Console open — the error names the directive that blocked, and the blocked URL.</li>
@@ -143,7 +164,10 @@ wrote that keyword.
 
 <footer class="lesson-footer">
 <p>Lessons: <a href="../lessons/0001-what-the-browser-does-with-your-csp.html">1 — What the browser does with your CSP</a> ·
-<a href="../lessons/0002-reading-a-csp-violation-report.html">2 — Reading a CSP violation report</a></p>
+<a href="../lessons/0002-reading-a-csp-violation-report.html">2 — Reading a CSP violation report</a> ·
+<a href="../lessons/0003-why-script-src-gets-a-nonce-and-style-src-doesnt.html">3 — Nonces on script-src vs style-src</a> ·
+<a href="../lessons/0004-telling-a-weak-policy-from-a-strict-one.html">4 — Weak vs strict policy</a> ·
+<a href="../lessons/0005-shipping-a-policy-with-report-only.html">5 — Shipping with Report-Only</a></p>
 </footer>
 
 </body>

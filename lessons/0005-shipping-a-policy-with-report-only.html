@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lesson 5 — Shipping a tighter policy with Report-Only</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+
+<h1>Shipping a tighter policy with Report-Only</h1>
+<p class="subtitle">Lesson 5 · run the strict policy in a mode that can't break anything, read what it would have
+broken, then flip.</p>
+
+<p><strong>The win:</strong> you'll tighten a policy without an outage. Four moves in the lab: ship the strict
+policy in report-only mode, read the reports, fix, flip.</p>
+
+<h2>The 30-second version</h2>
+
+<ul>
+    <li><code>Content-Security-Policy-Report-Only</code> <strong>blocks nothing</strong>. It only reports.</li>
+    <li>You can send <strong>both headers on one response</strong>. The enforcing one decides what loads. The
+    report-only one decides what gets reported. They don't talk to each other.</li>
+    <li>Report-only with no <code>report-uri</code> or <code>report-to</code> does <strong>nothing at all</strong>.
+    MDN: "if not, the operation won't have any effect."</li>
+    <li>The two kinds of report look almost identical. <code>disposition</code> is the field that tells them apart:
+    <code>"enforce"</code> means blocked, <code>"report"</code> means predicted.</li>
+    <li>It only works as a <strong>response header</strong>. No <code>&lt;meta&gt;</code> support — so a rollout
+    lives in your middleware.</li>
+</ul>
+
+<h2>Why you need it</h2>
+
+<p><strong>You can't tell what a strict policy breaks by reading it.</strong> The third-party widget, the analytics
+snippet, the font host someone added in 2023 — none of that is in the header. It's in the traffic.</p>
+
+<p>So you let real page loads list the breakage for you. Fix first, flip second.</p>
+
+<aside class="note">
+The trap: seeing report-only violations pile up and thinking production is broken. Nothing was blocked. Each report
+is a prediction of what <em>would</em> break if you flipped today. Check <code>disposition</code> first.
+</aside>
+
+<hr>
+
+<h2>Hands-on: a rollout in four moves</h2>
+
+<pre><code>cd D:\shared\OneDrive\Teach-Skill\CSP-Learn\sandbox
+dotnet run --urls http://localhost:5099</code></pre>
+
+<p>Open <a href="http://localhost:5099">http://localhost:5099</a> and keep the terminal in view — the server logs
+every report that hits <code>/csp-report</code>. <code>appsettings.json</code> is watched, so edits apply on
+refresh.</p>
+
+<div class="step">
+<h3>1 · Loose policy enforcing, strict candidate reporting</h3>
+<p>This is the shape of a real legacy app: what's live, plus what you'd like to ship. Replace both arrays in
+<code>sandbox/appsettings.json</code>:</p>
+<pre><code>"CSPHeaders": [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-eval' cdn.jsdelivr.net",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src *",
+  "connect-src *",
+  "report-uri /csp-report"
+],
+"CSPReportOnlyHeaders": [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self'",
+  "img-src 'self'",
+  "connect-src 'self'",
+  "report-uri /csp-report"
+]</code></pre>
+<p>Refresh. Every probe that passed before still passes. The candidate blocked nothing — that's the point.</p>
+</div>
+
+<div class="step">
+<h3>2 · Read what the candidate would have killed</h3>
+<p>Guess before you look. Which probes should the candidate complain about?</p>
+<ul>
+    <li>Probe B — script from <code>cdn.jsdelivr.net</code></li>
+    <li>Probe F — image from <code>placehold.co</code></li>
+    <li>Probe G — <code>fetch()</code> to <code>api.github.com</code></li>
+</ul>
+<p>Now check the terminal. In each report, find <code>"disposition"</code>: it says <code>"report"</code>, not
+<code>"enforce"</code>. That's your proof these came from the candidate. Match <code>"effective-directive"</code>
+to the list above.</p>
+</div>
+
+<div class="step">
+<h3>3 · Fix from the evidence — but not all of it</h3>
+<p>Three violations, three different right answers. This is the judgement the lesson is for:</p>
+<ul>
+    <li><strong>Probe G</strong> — the app genuinely needs that API. Widen the candidate:
+    <code>"connect-src 'self' api.github.com"</code>.</li>
+    <li><strong>Probe B</strong> — a script host. You could allowlist it, but you have a nonce
+    (<a href="0003-why-script-src-gets-a-nonce-and-style-src-doesnt.html">lesson 3</a>). Leave the candidate strict
+    and fix the app instead: self-host the library, or load it with the nonce.</li>
+    <li><strong>Probe F</strong> — your call. Decide, then say your reason out loud. Both answers are
+    defensible.</li>
+</ul>
+<p>Save, refresh, confirm the G report stops arriving. Shrinking reports are your progress bar.</p>
+</div>
+
+<div class="step">
+<h3>4 · Flip</h3>
+<p>Move the candidate array into <code>CSPHeaders</code>, set <code>"CSPReportOnlyHeaders": []</code>, refresh.</p>
+<p>Whatever you chose not to fix now goes <span class="bad">BLOCKED</span> for real, and its report comes back with
+<code>"disposition": "enforce"</code>. Same violation, same directive — different consequence. That one field is
+the difference between a rollout and an outage.</p>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz" data-answer="2">
+    <p class="q">A response carries both CSP headers. A script violates only the report-only one. What happens?</p>
+    <button class="opt">Script is blocked, and one report is sent</button>
+    <button class="opt">Script is blocked, and no report is sent</button>
+    <button class="opt">Script still runs, and one report is sent</button>
+    <button class="opt">Script still runs, and no report is sent</button>
+    <div class="explain">The headers are evaluated separately. Only the enforcing one can block. The report arrives
+    with <code>"disposition": "report"</code>.</div>
+</div>
+
+<div class="quiz" data-answer="1">
+    <p class="q">You ship <code>Content-Security-Policy-Report-Only: script-src 'self'</code> and nothing else.
+    After a week, no reports. Why?</p>
+    <button class="opt">Nothing violated it — the policy is ready now</button>
+    <button class="opt">No report-uri or report-to, so nothing was sent</button>
+    <button class="opt">Report-only headers are ignored by all browsers</button>
+    <button class="opt">Reports only send when the policy is enforcing</button>
+    <div class="explain">MDN: a report directive "must be specified for reports to be sent: if not, the operation
+    won't have any effect." Console errors still show up locally, which is why this failure hides so well.</div>
+</div>
+
+<div class="quiz" data-answer="0">
+    <p class="q">Which field tells you whether a violation actually blocked something?</p>
+    <button class="opt">disposition — reads enforce or reads report</button>
+    <button class="opt">blocked-uri — the resource that was stopped</button>
+    <button class="opt">violated-directive — the rule that was hit</button>
+    <button class="opt">original-policy — the full policy as sent</button>
+    <div class="explain">Both kinds of report fill in <code>blocked-uri</code>, so its name misleads. Only
+    <code>disposition</code> separates them.</div>
+</div>
+
+<h2>Recall — no scrolling up</h2>
+
+<details class="recall">
+<summary>Say these out loud, then open to check</summary>
+<ul>
+    <li><strong>What does Report-Only block?</strong> Nothing, ever. It only reports.</li>
+    <li><strong>What must it carry to be worth shipping?</strong> <code>report-uri</code> or
+    <code>report-to</code>.</li>
+    <li><strong>Which field separates a real block from a prediction?</strong> <code>disposition</code>.</li>
+    <li><strong>From lesson 4:</strong> which unsafe keyword survives next to a nonce? <code>'unsafe-eval'</code> —
+    a nonce only neutralizes <code>'unsafe-inline'</code>.</li>
+    <li><strong>From lesson 1:</strong> is <code>default-src</code> deny-by-default? No — it's a fallback for fetch
+    directives you didn't write.</li>
+</ul>
+</details>
+
+<h2>Read this before lesson 6</h2>
+
+<p><strong>Primary source (10 minutes):</strong>
+<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy-Report-Only">MDN
+— <code>Content-Security-Policy-Report-Only</code></a>. Short page, and the source of both quiz gotchas above. Also
+read the <code>report-to</code> / <code>Reporting-Endpoints</code> example at the bottom — that's the modern
+replacement for the deprecated <code>report-uri</code> the lab uses.</p>
+
+<p><strong>One caveat from the field</strong>, per
+<a href="https://web.dev/articles/strict-csp">web.dev's strict-CSP guide</a>: "When enabling CSP for production
+traffic, you might see some noise in the CSP violation reports from browser extensions and malware." Filter the
+garbage before you trust a report count.</p>
+
+<h2>Next</h2>
+<p>Lesson 6: <code>default-src</code> as a fallback, not a deny — reading a huge permissive
+<code>default-src</code> with <code>data:</code> and <code>blob:</code> in it, and working out which directives it
+does <em>not</em> cover.</p>
+
+<footer class="lesson-footer">
+<p>Previous: <a href="0004-telling-a-weak-policy-from-a-strict-one.html">Lesson 4 — weak vs strict</a> ·
+<a href="0002-reading-a-csp-violation-report.html">Lesson 2 — reading a violation report</a> ·
+Reference: <a href="../reference/0001-csp-cheatsheet.html">CSP cheat sheet</a>.</p>
+<p><strong>Stuck, curious, or think something here is wrong?</strong> Ask your teacher — that is the agent that wrote
+this lesson. Push back on it; challenge the examples; ask for a harder variant of any exercise.</p>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

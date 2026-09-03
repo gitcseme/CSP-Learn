@@ -23,12 +23,19 @@
 - **Covers**: The exact `csp-report` JSON fields (`blocked-uri`, `disposition`, `effective-directive` vs `violated-directive`, `original-policy`, `script-sample` + `'report-sample'`), and the `report-uri` → `report-to` deprecation
 - **Status**: used in lesson 0002
 
+### MDN — `Content-Security-Policy-Report-Only` header
+- **URL**: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy-Report-Only
+- **Type**: Reference
+- **Trust**: High — MDN
+- **Covers**: Report-only semantics (never blocks), the hard requirement for `report-to`/`report-uri` ("if not, the operation won't have any effect"), no `<meta>` support, and the modern `Reporting-Endpoints` + `report-to` example that replaces `report-uri`
+- **Status**: used in lesson 0005
+
 ### web.dev — Mitigate XSS with a strict Content Security Policy
 - **URL**: https://web.dev/articles/strict-csp
 - **Type**: Article (Google security team)
 - **Trust**: High — authors ran the CSP measurement study behind the recommendation
 - **Covers**: Why host allowlists fail, nonce-based and hash-based strict policies, `'strict-dynamic'`, `object-src 'none'`, `base-uri 'none'`, report-only rollout
-- **Status**: used in lesson 0001 (as the "where we are heading" target)
+- **Status**: used in lessons 0001, 0004, 0005
 
 ### W3C — Content Security Policy Level 3
 - **URL**: https://www.w3.org/TR/CSP3/

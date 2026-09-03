@@ -10,11 +10,17 @@
 - Sandbox app, not a real repo — throwaway code in `./sandbox/`, fully self-contained.
 - **Generic examples only** (as of 2026-08-16, see learning-records/0002) — no employer-specific codebase or real
   production policy as the reference point. Invent domains/policies shaped like real-world ones instead.
-- **Writing style, corrected after lesson 2** (2026-08-16): lessons 1-2 were "hard to understand" — too dense,
-  too much packed into single paragraphs before the point lands. From lesson 3 onward: short paragraphs (2-3
-  sentences max), lead each section with the one-line takeaway before the explanation, cut asides down to only the
-  single most important trap, prefer short bullet lists over prose where the content is a list. Don't retroactively
-  rewrite lessons 1-2 unless asked — apply forward.
+- **Writing style — corrected after lesson 2 (2026-08-16) and AGAIN after lesson 5 (2026-09-03).** Same words both
+  times: "hard to understand, make the writing easy to understand and short". The lesson-3 rules were not enough.
+  Standing rules for every lesson from now on:
+  - Paragraphs of 1-3 sentences. One idea per sentence.
+  - Lead every section with its one-line takeaway, then explain.
+  - Bullets over prose wherever the content is a list.
+  - Plain words over precise-but-heavy ones. Cut any clause that is only there for completeness.
+  - One trap per lesson (one `aside.note`), not three.
+  - Numbered lab steps with short imperative headings (`1 · Loose policy enforcing, strict candidate reporting`).
+  - The "why this lesson exists" section gets two sentences, not five.
+  - Don't retroactively rewrite older lessons unless asked — apply forward.
 
 ## Working notes
 - CSP teaching topics worth covering, in rough order of teaching value (genericized — previously framed around a
