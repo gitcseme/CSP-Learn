@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lesson 6 — default-src is a fallback, not a deny</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+
+<h1>default-src is a fallback, not a deny</h1>
+<p class="subtitle">Lesson 6 · one directive can cover nine kinds of load and still say nothing at all about four
+others.</p>
+
+<p><strong>The win:</strong> given a policy that is mostly one big <code>default-src</code>, you'll name what it
+governs and what it leaves wide open — including the hole you can't see in a probe table.</p>
+
+<h2>The 30-second version</h2>
+
+<ul>
+    <li><code>default-src</code> is a fallback for <strong>fetch directives only</strong>. MDN: it "serves as a
+    fallback for the other CSP
+    <a href="https://developer.mozilla.org/en-US/docs/Glossary/Fetch_directive">fetch directives</a>."</li>
+    <li>Name a directive yourself and the fallback stops for that one. MDN: "If there are other directives
+    specified, <code>default-src</code> does not influence them."</li>
+    <li>Some directives <strong>never</strong> fall back — and when they're absent they restrict nothing. MDN's
+    table for each of them reads: "No. Not setting this allows anything."</li>
+    <li>So <code>default-src 'none'</code> is not deny-everything. It denies <em>fetches</em>. Form targets, base
+    URIs and framing are untouched.</li>
+</ul>
+
+<h2>Why this bites</h2>
+
+<p><strong>A policy that looks total isn't.</strong> A long <code>default-src</code> feels like it covers the page,
+so nobody checks what's missing.</p>
+
+<p>And what's missing produces no violation reports, because there's no directive to violate.</p>
+
+<aside class="note">
+The trap: reading <code>default-src</code> as a default <em>deny</em>. It's a default <em>value</em> — handed only
+to fetch directives you didn't write.
+</aside>
+
+<h2>The two halves of the directive list</h2>
+
+<table>
+<thead>
+<tr><th>Falls back to <code>default-src</code></th><th>Never falls back</th></tr>
+</thead>
+<tbody>
+<tr>
+<td><code>script-src</code>, <code>script-src-elem</code>, <code>script-src-attr</code>, <code>style-src</code>,
+<code>style-src-elem</code>, <code>style-src-attr</code>, <code>img-src</code>, <code>font-src</code>,
+<code>connect-src</code>, <code>media-src</code>, <code>object-src</code>, <code>manifest-src</code>,
+<code>frame-src</code>, <code>child-src</code>, <code>worker-src</code>, <code>prefetch-src</code></td>
+<td><code>base-uri</code>, <code>sandbox</code> (document directives)<br>
+<code>form-action</code>, <code>frame-ancestors</code> (navigation directives)<br>
+<code>report-to</code>, <code>report-uri</code> (reporting)<br>
+<code>upgrade-insecure-requests</code>, <code>trusted-types</code></td>
+</tr>
+</tbody>
+</table>
+
+<p>The left column is one idea: <strong>fetching a resource</strong>. The right column is four other ideas, and
+they each need naming explicitly. Per MDN, document directives "govern the properties of a document or worker
+environment" and navigation directives "govern to which locations a user can navigate or submit a form."</p>
+
+<hr>
+
+<h2>Hands-on: find the hole in a giant default-src</h2>
+
+<pre><code>cd D:\shared\OneDrive\Teach-Skill\CSP-Learn\sandbox
+dotnet run --urls http://localhost:5099</code></pre>
+
+<p>Open <a href="http://localhost:5099">http://localhost:5099</a>. The lab has a new <strong>probe J</strong>: it
+injects a <code>&lt;base&gt;</code> tag after load, the way an XSS payload would, and reports whether the hijack
+worked. <code>appsettings.json</code> applies on refresh.</p>
+
+<div class="step">
+<h3>1 · One directive, nine probes</h3>
+<p>Replace <code>CSPHeaders</code> in <code>sandbox/appsettings.json</code> with a single permissive
+<code>default-src</code> — the shape you'll meet in a legacy app:</p>
+<pre><code>"CSPHeaders": [
+  "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: cdn.jsdelivr.net placehold.co api.github.com",
+  "report-uri /csp-report"
+],
+"CSPReportOnlyHeaders": []</code></pre>
+<p>Clearing <code>CSPReportOnlyHeaders</code> matters — your lesson 5 candidate is probably still in there, and it
+would double every report you see later.</p>
+<p>Refresh. Probes A through I all pass, from one directive. That's the fallback doing nine jobs: script, style,
+image and connect all read their value from <code>default-src</code>.</p>
+</div>
+
+<div class="step">
+<h3>2 · Name one directive and the fallback stops</h3>
+<p>Add one line, changing nothing else:</p>
+<pre><code>"img-src 'self'"</code></pre>
+<p>Refresh. Probe F goes <span class="bad">BLOCKED</span> — even though <code>default-src</code> still lists
+<code>placehold.co</code>. Once you write <code>img-src</code>, <code>default-src</code> stops applying to images
+completely. It does not merge, and it is not a floor.</p>
+</div>
+
+<div class="step">
+<h3>3 · Find the hole</h3>
+<p>Look at probe J. It says <span class="ok">RAN / LOADED</span> — and here that's the bad news: the injected
+<code>&lt;base&gt;</code> took effect, so every relative URL on the page now points at an attacker's origin.</p>
+<p>Your <code>default-src</code> lists nine sources and still permits this. <code>base-uri</code> is a document
+directive, so it never reads <code>default-src</code>, and MDN's line for it is exact: "Not setting this allows any
+URL."</p>
+<p>Note what <em>didn't</em> happen: no violation report. Nothing was violated.</p>
+</div>
+
+<div class="step">
+<h3>4 · Close it</h3>
+<p>Add one more line:</p>
+<pre><code>"base-uri 'none'"</code></pre>
+<p>Refresh. Probe J flips to <span class="bad">BLOCKED</span>, and now you do get a report — check the terminal for
+<code>"effective-directive": "base-uri"</code>.</p>
+<p>This is why <a href="https://web.dev/articles/strict-csp">web.dev's recommended strict CSP</a> is
+<code>script-src 'nonce-{RANDOM}' 'strict-dynamic'; object-src 'none'; base-uri 'none'</code> — no
+<code>default-src</code> at all, and <code>base-uri</code> spelled out, because it "blocks the injection of
+<code>&lt;base&gt;</code> tags."</p>
+</div>
+
+<h2>Check yourself</h2>
+
+<div class="quiz" data-answer="0">
+    <p class="q">A policy is exactly <code>default-src 'none'</code> and nothing else. What may the page still do?</p>
+    <button class="opt">Submit a form to any origin it likes</button>
+    <button class="opt">Load an image from any origin it likes</button>
+    <button class="opt">Run inline scripts from its own markup</button>
+    <button class="opt">Fetch a JSON doc from any origin around</button>
+    <div class="explain"><code>form-action</code> is a navigation directive and never falls back, so an unset
+    <code>form-action</code> allows anything. The other three are fetches, and <code>'none'</code> stops them.</div>
+</div>
+
+<div class="quiz" data-answer="1">
+    <p class="q">Your policy is <code>default-src 'self'; img-src *</code>. Where may images load from?</p>
+    <button class="opt">Only the page's own origin, per default-src</button>
+    <button class="opt">Any origin at all — img-src wins outright</button>
+    <button class="opt">Only origins listed in both of the lines</button>
+    <button class="opt">Nowhere: the two lines cancel each other</button>
+    <div class="explain">Naming <code>img-src</code> removes images from <code>default-src</code>'s reach
+    entirely. MDN: "If there are other directives specified, <code>default-src</code> does not influence
+    them."</div>
+</div>
+
+<div class="quiz" data-answer="1">
+    <p class="q">Which of these does <code>default-src</code> <em>not</em> act as a fallback for?</p>
+    <button class="opt">connect-src</button>
+    <button class="opt">form-action</button>
+    <button class="opt">manifest-src</button>
+    <button class="opt">media-src</button>
+    <div class="explain">Three of these are fetch directives. <code>form-action</code> is a navigation directive —
+    it governs where a form may submit, not what the page fetches.</div>
+</div>
+
+<h2>Recall — no scrolling up</h2>
+
+<details class="recall">
+<summary>Say these out loud, then open to check</summary>
+<ul>
+    <li><strong>What kind of directive does <code>default-src</code> cover?</strong> Fetch directives, and only
+    those.</li>
+    <li><strong>Name two directives it can't cover.</strong> Any two of <code>base-uri</code>,
+    <code>sandbox</code>, <code>form-action</code>, <code>frame-ancestors</code>.</li>
+    <li><strong>What does an absent <code>form-action</code> permit?</strong> Anything — absent means unrestricted,
+    not inherited.</li>
+    <li><strong>From lesson 5:</strong> which field tells a real block from a prediction?
+    <code>disposition</code>.</li>
+    <li><strong>From lesson 3:</strong> why is a <code>style-src</code> nonce hard in a React app? CSS-in-JS
+    libraries inject <code>&lt;style&gt;</code> tags from the browser, after your server is done.</li>
+    <li><strong>From lesson 4:</strong> what makes a host allowlist in <code>script-src</code> weak? Any bypassable
+    file on an allowed host becomes your script source.</li>
+</ul>
+</details>
+
+<h2>Read this next</h2>
+
+<p><strong>Primary source (8 minutes):</strong>
+<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/default-src">MDN
+— <code>default-src</code></a>. The list of directives that fall back is right at the top, and the worked example
+at the bottom is the source of the "does not influence them" rule you proved in step 2.</p>
+
+<p><strong>Then skim</strong> the
+<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy">CSP directive
+index</a> — one screen, grouped into fetch, document, navigation and reporting directives. Once you can see those
+four groups, the fallback rule stops needing memorisation.</p>
+
+<h2>Next</h2>
+<p>That's every success criterion in the mission covered. Lesson 7 should be a <strong>cold read</strong>: four
+unfamiliar policies, no hints, name the weakness and the smallest fix for each — interleaving lessons 1–6 instead
+of adding anything new. Ask your teacher for it when you want it.</p>
+
+<footer class="lesson-footer">
+<p>Previous: <a href="0005-shipping-a-policy-with-report-only.html">Lesson 5 — Report-Only rollout</a> ·
+<a href="0001-what-the-browser-does-with-your-csp.html">Lesson 1 — what the browser does</a> ·
+Reference: <a href="../reference/0001-csp-cheatsheet.html">CSP cheat sheet</a>.</p>
+<p><strong>Stuck, curious, or think something here is wrong?</strong> Ask your teacher — that is the agent that wrote
+this lesson. Push back on it; challenge the examples; ask for a harder variant of any exercise.</p>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

@@ -13,8 +13,8 @@
 - **URL**: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy
 - **Type**: Reference
 - **Trust**: High
-- **Covers**: Every directive, one page each, with browser-support tables. The lookup table when a violation names a directive you do not recognise.
-- **Status**: unread
+- **Covers**: Every directive, one page each, with browser-support tables. The lookup table when a violation names a directive you do not recognise. Also the canonical grouping — fetch / document / navigation / reporting — which is what predicts `default-src` fallback behaviour.
+- **Status**: used in lesson 0006 (secondary read)
 
 ### MDN — `report-uri` directive (violation report JSON shape)
 - **URL**: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/report-uri
@@ -30,12 +30,26 @@
 - **Covers**: Report-only semantics (never blocks), the hard requirement for `report-to`/`report-uri` ("if not, the operation won't have any effect"), no `<meta>` support, and the modern `Reporting-Endpoints` + `report-to` example that replaces `report-uri`
 - **Status**: used in lesson 0005
 
+### MDN — `default-src` directive
+- **URL**: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/default-src
+- **Type**: Reference
+- **Trust**: High — MDN
+- **Covers**: The authoritative list of the 16 fetch directives that fall back to `default-src`, the "serves as a fallback for the other CSP fetch directives" definition, and the rule that settles most arguments: "If there are other directives specified, `default-src` does not influence them."
+- **Status**: used in lesson 0006
+
+### MDN — `base-uri`, `form-action`, `frame-ancestors`
+- **URL**: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/base-uri
+- **Type**: Reference (three sibling pages)
+- **Trust**: High — MDN
+- **Covers**: The three most-forgotten non-fetch directives. Each page's spec summary table carries the line that matters: "default-src fallback: No. Not setting this allows anything." `base-uri` adds "Not setting this allows any URL"; `form-action` notes that browsers disagree on whether it blocks post-submission redirects.
+- **Status**: used in lesson 0006
+
 ### web.dev — Mitigate XSS with a strict Content Security Policy
 - **URL**: https://web.dev/articles/strict-csp
 - **Type**: Article (Google security team)
 - **Trust**: High — authors ran the CSP measurement study behind the recommendation
 - **Covers**: Why host allowlists fail, nonce-based and hash-based strict policies, `'strict-dynamic'`, `object-src 'none'`, `base-uri 'none'`, report-only rollout
-- **Status**: used in lessons 0001, 0004, 0005
+- **Status**: used in lessons 0001, 0004, 0005, 0006
 
 ### W3C — Content Security Policy Level 3
 - **URL**: https://www.w3.org/TR/CSP3/

@@ -81,6 +81,17 @@
     const injectedBlocked = getComputedStyle(document.getElementById('probe-i')).outlineColor;
     probes.push(['I — runtime-injected style (like a CSS-in-JS library)', "style-src 'nonce-…' (needs wiring)", injectedBlocked === 'rgb(0, 128, 0)']);
 
+    // Probe J: a <base> element injected after load, the way an XSS payload
+    // would. Governed by base-uri, which has NO default-src fallback -- so a
+    // policy made only of default-src says nothing about it.
+    // Note the inversion: for this probe, "RAN" is the bad outcome.
+    const base = document.createElement('base');
+    base.href = 'https://csp-lab.example/';
+    document.head.appendChild(base);
+    const baseHijacked = document.baseURI.startsWith('https://csp-lab.example/');
+    base.remove();
+    probes.push(['J — injected &lt;base&gt; hijacks relative URLs', 'base-uri (no default-src fallback)', baseHijacked]);
+
     let tableRows = probes.map(([name, needs, ok]) => {
         return `<tr><td>${name}</td><td><code>${needs}</code></td>` +
                `<td class="${ok ? 'ok' : 'bad'}">${ok ? 'RAN / LOADED' : 'BLOCKED'}</td></tr>`

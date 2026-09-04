@@ -53,6 +53,22 @@ Forgetting that <code>frame-ancestors</code> and <code>base-uri</code> do <stron
 leaves your page embeddable by anyone.
 </aside>
 
+<h3>The three fallback rules</h3>
+
+<table>
+    <tr><th>Rule</th><th>In practice</th></tr>
+    <tr><td>Fetch directive absent → uses <code>default-src</code></td><td>One <code>default-src</code> can govern script, style, img, connect, font, frame, worker, media, object, manifest at once.</td></tr>
+    <tr><td>Fetch directive present → <code>default-src</code> stops applying to it</td><td>MDN: "If there are other directives specified, <code>default-src</code> does not influence them." No merging, no floor: <code>default-src 'self' cdn.example.com; img-src 'self'</code> blocks CDN images.</td></tr>
+    <tr><td>Non-fetch directive absent → unrestricted</td><td>MDN's summary table for each reads "No. Not setting this allows anything." <code>default-src 'none'</code> denies fetches only.</td></tr>
+</table>
+
+<p>MDN's own grouping is the thing to memorise, because it predicts the fallback:
+<strong>fetch</strong> directives fall back; <strong>document</strong> (<code>base-uri</code>,
+<code>sandbox</code>), <strong>navigation</strong> (<code>form-action</code>, <code>frame-ancestors</code>) and
+<strong>reporting</strong> directives never do
+(<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/default-src">MDN
+— <code>default-src</code></a>).</p>
+
 <h2>Source expressions</h2>
 
 <table>
@@ -167,7 +183,8 @@ Send it alongside the enforcing header; the browser evaluates each independently
 <a href="../lessons/0002-reading-a-csp-violation-report.html">2 — Reading a CSP violation report</a> ·
 <a href="../lessons/0003-why-script-src-gets-a-nonce-and-style-src-doesnt.html">3 — Nonces on script-src vs style-src</a> ·
 <a href="../lessons/0004-telling-a-weak-policy-from-a-strict-one.html">4 — Weak vs strict policy</a> ·
-<a href="../lessons/0005-shipping-a-policy-with-report-only.html">5 — Shipping with Report-Only</a></p>
+<a href="../lessons/0005-shipping-a-policy-with-report-only.html">5 — Shipping with Report-Only</a> ·
+<a href="../lessons/0006-default-src-is-a-fallback-not-a-deny.html">6 — default-src is a fallback, not a deny</a></p>
 </footer>
 
 </body>

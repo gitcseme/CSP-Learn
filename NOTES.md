@@ -23,15 +23,19 @@
   - Don't retroactively rewrite older lessons unless asked — apply forward.
 
 ## Working notes
-- CSP teaching topics worth covering, in rough order of teaching value (genericized — previously framed around a
-  specific employer's codebase):
-  - A nonce appended only to `script-src` / `script-src-elem`, while `style-src` keeps `'unsafe-inline'` — because
-    CSS-in-JS libraries (MUI/emotion, styled-components) inject styles at runtime. Good lesson on why style nonces
-    are hard in a React SPA.
-  - A `script-src` with no `'unsafe-inline'` but a host allowlist — exactly the shape web.dev calls bypassable.
-  - `script-src 'self' 'unsafe-eval' 'unsafe-inline'` as a weak baseline — worth a lesson on why, and what a real fix
-    costs.
-  - A `Content-Security-Policy-Report-Only` rollout: collect real violations, read them, flip to enforcing.
-  - `default-src` as a huge allowlist including `data:` and `blob:` — teachable moment on `default-src` as a
-    fallback, not a default *deny*.
+- **The original topic list is exhausted as of lesson 6 (2026-09-04).** All five topics are taught: style nonces
+  vs script nonces (3), bypassable host allowlists (4), the weak `'unsafe-eval' 'unsafe-inline'` baseline (4),
+  the Report-Only rollout (5), `default-src` as a fallback rather than a deny (6). Every `MISSION.md` success
+  criterion has a lesson behind it — see learning-records/0005.
+- **Nothing has interleaved yet.** Lessons 1-6 each tested only their own topic, so retrieval is cued: he has
+  never had to identify a weakness without knowing which lesson it came from. Fix this before adding new
+  material — proposed lesson 7 is a cold-read drill over four unfamiliar policies.
+- Candidate directions after that, all needing his agreement (they extend or change `MISSION.md`):
+  - Trusted Types / `require-trusted-types-for` — explicitly out of scope today.
+  - `'strict-dynamic'` in depth: it is on the cheat sheet and in web.dev's recommended policy, but no lesson has
+    made him reason about what it does to a host allowlist.
+  - Hash-based policies (`'sha256-…'`) for the no-nonce case — mentioned on the cheat sheet, never practised.
+  - Reading a real policy of his own choosing against csp-evaluator, as a graduation exercise.
+- Spaced repetition is currently carried by each lesson's `details.recall` block, which pulls two or three items
+  from earlier lessons. Keep doing that; it is the only spacing mechanism in the workspace.
 - Style/UX: Tufte-ish, printable, one shared stylesheet in `./assets/course.css`.
